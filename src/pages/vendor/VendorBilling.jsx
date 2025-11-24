@@ -3,10 +3,10 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../..
 import { Button } from '../../components/ui/Button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../components/ui/Table';
 import { formatCurrency, formatDate } from '../../lib/utils';
-import { 
-  DollarSign, 
-  FileText, 
-  Download, 
+import {
+  DollarSign,
+  FileText,
+  Download,
   Calendar,
   TrendingUp,
   Clock,
@@ -16,97 +16,108 @@ import {
 } from 'lucide-react';
 import { PayoutTrendChart } from '../../components/charts/PayoutTrendChart';
 // import { IncentiveBreakdownChart } from '../../components/charts/IncentiveBreakdownChart';
+import * as XLSX from 'xlsx';
+
+import useAuthStore from '../../store/authStore';
 
 export function VendorBilling() {
+  const { user } = useAuthStore();
   const [billingData, setBillingData] = useState({
     currentMonth: {},
     payoutHistory: [],
     incentiveBreakdown: {},
     payoutTrends: []
   });
-  const [selectedMonth, setSelectedMonth] = useState('2024-11');
+  const [selectedMonth, setSelectedMonth] = useState('2025-11');
   const [generating, setGenerating] = useState(false);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Mock vendor billing data
-    const mockBillingData = {
-      currentMonth: {
-        month: '2024-11',
-        totalPayout: 285750,
-        baseAmount: 220000,
-        incentives: 45500,
-        extraCharges: 20250,
-        payoutStatus: 'pending',
-        trips: {
-          total: 127,
-          baseKm: 1850,
-          extraKm: 275,
-          extraHours: 45
-        },
-        breakdown: {
-          baseKmRate: 12,
-          extraKmRate: 18,
-          extraHourRate: 75,
-          nightTripBonus: 25,
-          holidayMultiplier: 1.5,
-          performanceBonus: 5000
+    const fetchBillingData = async () => {
+      try {
+        const token = useAuthStore.getState().accessToken;
+        if (!token) return;
+
+        const response = await fetch(
+          `${import.meta.env.VITE_API_BASE_URL}/api/v1/vendor/billing/monthly?month=${selectedMonth}`,
+          { headers: { 'Authorization': `Bearer ${token}` } }
+        );
+
+        if (response.ok) {
+          const data = await response.json();
+          setBillingData(data);
+          console.log('✅ Billing data loaded:', data);
         }
-      },
-      payoutHistory: [
-        {
-          month: '2024-10',
-          totalPayout: 268500,
-          baseAmount: 205000,
-          incentives: 42000,
-          extraCharges: 21500,
-          payoutStatus: 'paid',
-          paidDate: '2024-11-05',
-          trips: 119
-        },
-        {
-          month: '2024-09',
-          totalPayout: 251200,
-          baseAmount: 198000,
-          incentives: 38200,
-          extraCharges: 15000,
-          payoutStatus: 'paid',
-          paidDate: '2024-10-05',
-          trips: 108
-        },
-        {
-          month: '2024-08',
-          totalPayout: 276800,
-          baseAmount: 215000,
-          incentives: 41800,
-          extraCharges: 20000,
-          payoutStatus: 'paid',
-          paidDate: '2024-09-05',
-          trips: 124
-        }
-      ],
-      incentiveBreakdown: {
-        extraKm: 12750,
-        extraHours: 15200,
-        nightTrips: 8500,
-        holidayTrips: 4250,
-        performanceBonus: 4800
-      },
-      payoutTrends: [
-        { month: 'Aug', amount: 276800, trips: 124 },
-        { month: 'Sep', amount: 251200, trips: 108 },
-        { month: 'Oct', amount: 268500, trips: 119 },
-        { month: 'Nov', amount: 285750, trips: 127 }
-      ]
+      } catch (error) {
+        console.error('Error fetching billing:', error);
+      } finally {
+        setLoading(false);
+      }
     };
-    setBillingData(mockBillingData);
-  }, [selectedMonth]);
+
+    if (user) fetchBillingData();
+  }, [selectedMonth, user]);
 
   const generatePayoutStatement = async (format) => {
     setGenerating(true);
-    setTimeout(() => {
+
+    try {
+      if (format === 'excel' || format === 'xlsx') {
+        console.log('Starting Excel export...', billingData);
+
+        // Prepare data for Excel
+        const worksheet_data = [
+          ['Vendor Billing Statement'],
+          ['Month:', billingData.currentMonth?.month || ''],
+          [''],
+          ['Summary'],
+          ['Total Payout', billingData.currentMonth?.totalPayout || 0],
+          ['Base Amount', billingData.currentMonth?.baseAmount || 0],
+          ['Extra Charges', billingData.currentMonth?.extraCharges || 0],
+          ['Incentives', billingData.currentMonth?.incentives || 0],
+          [''],
+          ['Trip Details'],
+          ['Total Trips', billingData.currentMonth?.trips?.total || 0],
+          ['Completed Trips', billingData.currentMonth?.trips?.completed || 0],
+          ['Total KM', billingData.currentMonth?.trips?.baseKm || 0],
+          [''],
+          ['Payout History'],
+          ['Month', 'Trips', 'Base Amount', 'Extra Charges', 'Total Payout', 'Status']
+        ];
+
+        // Add history rows
+        if (billingData.payoutHistory && billingData.payoutHistory.length > 0) {
+          billingData.payoutHistory.forEach(payout => {
+            worksheet_data.push([
+              payout.month,
+              payout.trips,
+              payout.baseAmount,
+              payout.extraCharges,
+              payout.totalPayout,
+              payout.payoutStatus
+            ]);
+          });
+        }
+
+        const worksheet = XLSX.utils.aoa_to_sheet(worksheet_data);
+        const workbook = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(workbook, worksheet, 'Billing');
+
+        const filename = `billing_${billingData.currentMonth?.month || 'statement'}.xlsx`;
+        XLSX.writeFile(workbook, filename);
+
+        console.log('✅ Excel export successful:', filename);
+      } else if (format === 'pdf') {
+        alert('PDF export coming soon!');
+      } else {
+        alert(`${format.toUpperCase()} export coming soon!`);
+      }
+    } catch (error) {
+      console.error('Export error:', error);
+      alert(`Failed to export billing statement: ${error.message}`);
+    } finally {
       setGenerating(false);
-      alert(`${format.toUpperCase()} payout statement generated successfully!`);
-    }, 2000);
+    }
   };
 
   const getPayoutStatusBadge = (status) => {
@@ -138,9 +149,9 @@ export function VendorBilling() {
             onChange={(e) => setSelectedMonth(e.target.value)}
             className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
           >
-            <option value="2024-11">November 2024</option>
-            <option value="2024-10">October 2024</option>
-            <option value="2024-09">September 2024</option>
+            <option value="2025-11">November 2025</option>
+            <option value="2025-10">October 2025</option>
+            <option value="2025-09">September 2025</option>
           </select>
           <Button variant="outline">
             <Calendar className="w-4 h-4 mr-2" />
@@ -380,7 +391,7 @@ export function VendorBilling() {
       </Card>
 
       {/* Export Options */}
-      <Card>
+      {/* <Card>
         <CardHeader>
           <CardTitle>Export Payout Statements</CardTitle>
           <CardDescription>
@@ -389,16 +400,16 @@ export function VendorBilling() {
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <Button 
-              onClick={() => generatePayoutStatement('pdf')} 
+            <Button
+              onClick={() => generatePayoutStatement('pdf')}
               disabled={generating}
               className="h-20 flex-col"
             >
               <FileText className="w-8 h-8 mb-2" />
               <span>Monthly Statement (PDF)</span>
             </Button>
-            <Button 
-              onClick={() => generatePayoutStatement('excel')} 
+            <Button
+              onClick={() => generatePayoutStatement('excel')}
               disabled={generating}
               className="h-20 flex-col"
               variant="outline"
@@ -406,8 +417,8 @@ export function VendorBilling() {
               <Download className="w-8 h-8 mb-2" />
               <span>Detailed Breakdown (Excel)</span>
             </Button>
-            <Button 
-              onClick={() => generatePayoutStatement('csv')} 
+            <Button
+              onClick={() => generatePayoutStatement('csv')}
               disabled={generating}
               className="h-20 flex-col"
               variant="outline"
@@ -425,7 +436,7 @@ export function VendorBilling() {
             </div>
           )}
         </CardContent>
-      </Card>
+      </Card> */}
     </div>
   );
 }

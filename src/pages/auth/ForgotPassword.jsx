@@ -1,37 +1,68 @@
 import React, { useState } from 'react';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
 import { Link } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
+import { ButtonLoading } from '../../components/ui/LoadingOverlay';
 import { Mail, ArrowLeft, CheckCircle, Building } from 'lucide-react';
+import authService from '../../services/authService';
+import { showSuccess, showInfo, showError } from '../../lib/toast';
+import { forgotPasswordSchema } from '../../schemas/authSchemas';
 
+/**
+ * ForgotPassword Component
+ * Handles password reset email submission
+ * Requirements: 7.1, 7.2
+ */
 export function ForgotPassword() {
-  const [email, setEmail] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [isEmailSent, setIsEmailSent] = useState(false);
-  const [error, setError] = useState('');
+  const [apiError, setApiError] = useState('');
+  const [submittedEmail, setSubmittedEmail] = useState('');
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    
-    if (!email) {
-      setError('Email is required');
-      return;
+  const {
+    register,
+    handleSubmit,
+    formState: { errors }
+  } = useForm({
+    resolver: zodResolver(forgotPasswordSchema),
+    defaultValues: {
+      email: ''
     }
-    
-    if (!/\S+@\S+\.\S+/.test(email)) {
-      setError('Please enter a valid email address');
-      return;
-    }
-    
+  });
+
+  /**
+   * Handle forgot password form submission
+   * Requirements: 7.1 - POST request to Auth Service forgot-password endpoint
+   */
+  const onSubmit = async (data) => {
     setIsLoading(true);
-    setError('');
+    setApiError('');
     
     try {
-      // Mock password reset request
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      await authService.requestPasswordReset(data.email);
+      // Requirements: 7.2 - Display message instructing user to check email
+      setSubmittedEmail(data.email);
       setIsEmailSent(true);
+      
+      // Show success toast (Requirement 7.2)
+      showInfo('Password reset email sent! Please check your inbox.');
     } catch (error) {
-      setError('Failed to send reset email. Please try again.');
+      let errorMessage;
+      
+      if (error.response?.status === 404) {
+        errorMessage = 'No account found with this email address';
+      } else if (error.response?.status === 429) {
+        errorMessage = 'Too many requests. Please wait a moment and try again.';
+      } else if (!error.response) {
+        errorMessage = 'Network error. Please check your connection and try again.';
+      } else {
+        errorMessage = 'Failed to send reset email. Please try again.';
+      }
+      
+      setApiError(errorMessage);
+      showError(errorMessage);
     } finally {
       setIsLoading(false);
     }
@@ -39,11 +70,16 @@ export function ForgotPassword() {
 
   const handleResendEmail = async () => {
     setIsLoading(true);
+    setApiError('');
     try {
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      await authService.requestPasswordReset(submittedEmail);
       // Email resent successfully
     } catch (error) {
-      setError('Failed to resend email. Please try again.');
+      if (error.response?.status === 429) {
+        setApiError('Too many requests. Please wait a moment and try again.');
+      } else {
+        setApiError('Failed to resend email. Please try again.');
+      }
     } finally {
       setIsLoading(false);
     }
@@ -78,7 +114,7 @@ export function ForgotPassword() {
                   We sent a password reset link to:
                 </p>
                 <p className="font-medium text-gray-900 bg-gray-50 px-4 py-2 rounded-lg">
-                  {email}
+                  {submittedEmail}
                 </p>
               </div>
 
@@ -98,14 +134,7 @@ export function ForgotPassword() {
                   className="w-full"
                   variant="outline"
                 >
-                  {isLoading ? (
-                    <div className="flex items-center justify-center">
-                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-gray-600 mr-2"></div>
-                      Resending...
-                    </div>
-                  ) : (
-                    'Resend Email'
-                  )}
+                  {isLoading ? <ButtonLoading text="Resending..." variant="gray" /> : 'Resend Email'}
                 </Button>
 
                 <Link to="/login">
@@ -142,7 +171,7 @@ export function ForgotPassword() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <form onSubmit={handleSubmit} className="space-y-4">
+            <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
               {/* Email Field */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -152,19 +181,18 @@ export function ForgotPassword() {
                   <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
                   <input
                     type="email"
-                    value={email}
-                    onChange={(e) => {
-                      setEmail(e.target.value);
-                      setError('');
-                    }}
+                    {...register('email')}
                     placeholder="Enter your email address"
                     className={`w-full pl-10 pr-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                      error ? 'border-red-500' : 'border-gray-300'
+                      errors.email || apiError ? 'border-red-500' : 'border-gray-300'
                     }`}
                   />
                 </div>
-                {error && (
-                  <p className="text-red-500 text-sm mt-1">{error}</p>
+                {errors.email && (
+                  <p className="text-red-500 text-sm mt-1">{errors.email.message}</p>
+                )}
+                {apiError && (
+                  <p className="text-red-500 text-sm mt-1">{apiError}</p>
                 )}
               </div>
 
@@ -174,14 +202,7 @@ export function ForgotPassword() {
                 disabled={isLoading}
                 className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors"
               >
-                {isLoading ? (
-                  <div className="flex items-center justify-center">
-                    <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-2"></div>
-                    Sending...
-                  </div>
-                ) : (
-                  'Send Reset Link'
-                )}
+                {isLoading ? <ButtonLoading text="Sending..." /> : 'Send Reset Link'}
               </Button>
 
               {/* Back to Login */}

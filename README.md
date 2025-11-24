@@ -2,6 +2,22 @@
 
 A React + Vite application for unified billing and reporting with support for clients, vendors, and employees.
 
+## ⚙️ Environment Configuration
+
+Before running the application, you need to configure environment variables:
+
+1. **Copy the example environment file:**
+   ```bash
+   cp .env.example .env
+   ```
+
+2. **Update the `.env` file** with your configuration (see [ENV_SETUP.md](ENV_SETUP.md) for details)
+
+3. **Required variables:**
+   - `VITE_API_BASE_URL` - Backend API URL (default: `http://localhost:8000`)
+
+For detailed information about all available environment variables, see [ENV_SETUP.md](ENV_SETUP.md).
+
 ## 🚀 Quick Start with Docker
 
 **Prerequisites:** Only Docker and Docker Compose need to be installed on your machine.

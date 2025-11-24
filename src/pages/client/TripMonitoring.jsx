@@ -3,9 +3,12 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../..
 import { Button } from '../../components/ui/Button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../components/ui/Table';
 import { formatCurrency, formatDate } from '../../lib/utils';
-import { Calendar, Filter, Download, Search, Eye, MapPin, Clock, DollarSign } from 'lucide-react';
+import { Calendar, Filter, Download, Search, Eye, MapPin, Clock, DollarSign, FileText } from 'lucide-react';
+import { clientApi } from '../../services/clientApi';
+import useAuthStore from '../../store/authStore';
 
 export function TripMonitoring() {
+  const { user } = useAuthStore();
   const [trips, setTrips] = useState([]);
   const [filters, setFilters] = useState({
     dateRange: { start: '', end: '' },
@@ -14,85 +17,52 @@ export function TripMonitoring() {
     tripType: ''
   });
   const [loading, setLoading] = useState(false);
+  const [summary, setSummary] = useState({
+    total: 0,
+    totalCost: 0,
+    overLimit: 0,
+    incentivesApplied: 0,
+    incentiveCount: 0
+  });
 
   useEffect(() => {
-    // Mock trip data
-    const mockTrips = [
-      {
-        id: 1,
-        date: '2024-11-20',
-        employee: {
-          name: 'John Doe',
-          empId: 'EMP001',
-          department: 'Engineering'
-        },
-        vendor: 'Swift Transport',
-        route: {
-          pickup: 'Electronic City',
-          drop: 'Koramangala',
-          distance: 15.2
-        },
-        time: {
-          pickup: '09:15 AM',
-          drop: '10:05 AM',
-          duration: '50 mins'
-        },
-        cost: {
-          base: 180,
-          extra: 25,
-          total: 205
-        },
-        tripType: 'package_included',
-        billingModel: 'Package',
-        incentive: {
-          applied: false,
-          amount: 0,
-          reason: null
-        },
-        overLimit: {
-          km: 0,
-          hours: 0
-        }
-      },
-      {
-        id: 2,
-        date: '2024-11-20',
-        employee: {
-          name: 'Jane Smith',
-          empId: 'EMP002',
-          department: 'Marketing'
-        },
-        vendor: 'City Cabs',
-        route: {
-          pickup: 'Whitefield',
-          drop: 'Brigade Road',
-          distance: 22.8
-        },
-        time: {
-          pickup: '08:30 AM',
-          drop: '09:45 AM',
-          duration: '75 mins'
-        },
-        cost: {
-          base: 200,
-          extra: 45,
-          total: 245
-        },
-        tripType: 'over_limit',
-        billingModel: 'Trip',
-        incentive: {
-          applied: true,
-          amount: 50,
-          reason: 'Extra kilometers'
-        },
-        overLimit: {
-          km: 5.8,
-          hours: 0.25
-        }
+    const fetchTrips = async () => {
+      setLoading(true);
+      try {
+        const apiFilters = {};
+        if (filters.dateRange.start) apiFilters.start_date = filters.dateRange.start;
+        if (filters.dateRange.end) apiFilters.end_date = filters.dateRange.end;
+        if (filters.vendor) apiFilters.vendor_id = filters.vendor;
+        if (filters.employee) apiFilters.employee_id = filters.employee;
+        if (filters.tripType) apiFilters.trip_type = filters.tripType;
+        apiFilters.limit = 50; // Default limit
+
+        const tripData = await clientApi.trips.search(apiFilters);
+        const fetchedTrips = tripData.trips || [];
+        setTrips(fetchedTrips);
+
+        // Calculate summary from fetched trips (or ideally fetch summary from API)
+        // For now, calculating client-side based on the fetched page
+        const newSummary = {
+          total: tripData.totalCount || fetchedTrips.length,
+          totalCost: fetchedTrips.reduce((sum, trip) => sum + (trip.cost?.total || 0), 0),
+          overLimit: fetchedTrips.filter(t => t.tripType === 'over_limit').length,
+          incentivesApplied: fetchedTrips.reduce((sum, trip) => sum + (trip.incentive?.amount || 0), 0),
+          incentiveCount: fetchedTrips.filter(t => t.incentive?.applied).length
+        };
+        setSummary(newSummary);
+
+      } catch (error) {
+        console.error('Failed to fetch trips:', error);
+      } finally {
+        setLoading(false);
       }
-    ];
-    setTrips(mockTrips);
-  }, []);
+    };
+
+    if (user) {
+      fetchTrips();
+    }
+  }, [filters, user]);
 
   const getTripTypeBadge = (type) => {
     switch (type) {
@@ -108,16 +78,8 @@ export function TripMonitoring() {
   };
 
   const getTripTypeLabel = (type) => {
-    switch (type) {
-      case 'package_included':
-        return 'Package Included';
-      case 'over_limit':
-        return 'Over Limit';
-      case 'incentive_applied':
-        return 'Incentive Applied';
-      default:
-        return 'Standard';
-    }
+    if (!type) return 'Standard';
+    return type.split('_').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
   };
 
   const handleFilterChange = (key, value) => {
@@ -151,9 +113,9 @@ export function TripMonitoring() {
             <Download className="w-4 h-4 mr-2" />
             Export Data
           </Button>
-          <Button>
+          <Button onClick={clearFilters}>
             <Filter className="w-4 h-4 mr-2" />
-            Advanced Filters
+            Clear Filters
           </Button>
         </div>
       </div>
@@ -163,26 +125,26 @@ export function TripMonitoring() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium text-gray-600">
-              Total Trips Today
+              Total Trips
             </CardTitle>
             <MapPin className="h-4 w-4 text-blue-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">42</div>
-            <p className="text-xs text-green-600 mt-1">+5.2% from yesterday</p>
+            <div className="text-2xl font-bold">{summary.total}</div>
+            <p className="text-xs text-blue-600 mt-1">Filtered results</p>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium text-gray-600">
-              Total Cost Today
+              Total Cost
             </CardTitle>
             <DollarSign className="h-4 w-4 text-green-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{formatCurrency(8750)}</div>
-            <p className="text-xs text-red-600 mt-1">+12.3% from yesterday</p>
+            <div className="text-2xl font-bold">{formatCurrency(summary.totalCost)}</div>
+            <p className="text-xs text-green-600 mt-1">All trips</p>
           </CardContent>
         </Card>
 
@@ -194,8 +156,10 @@ export function TripMonitoring() {
             <Clock className="h-4 w-4 text-red-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">7</div>
-            <p className="text-xs text-yellow-600 mt-1">16.7% of total trips</p>
+            <div className="text-2xl font-bold">{summary.overLimit}</div>
+            <p className="text-xs text-yellow-600 mt-1">
+              {summary.total > 0 ? ((summary.overLimit / summary.total) * 100).toFixed(1) : 0}% of total
+            </p>
           </CardContent>
         </Card>
 
@@ -207,8 +171,8 @@ export function TripMonitoring() {
             <DollarSign className="h-4 w-4 text-purple-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{formatCurrency(450)}</div>
-            <p className="text-xs text-blue-600 mt-1">12 trips eligible</p>
+            <div className="text-2xl font-bold">{formatCurrency(summary.incentivesApplied)}</div>
+            <p className="text-xs text-blue-600 mt-1">{summary.incentiveCount} trips eligible</p>
           </CardContent>
         </Card>
       </div>
@@ -255,10 +219,23 @@ export function TripMonitoring() {
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
               >
                 <option value="">All Vendors</option>
-                <option value="Swift Transport">Swift Transport</option>
-                <option value="City Cabs">City Cabs</option>
-                <option value="Metro Rides">Metro Rides</option>
+                {/* Ideally fetch vendors list here too, but hardcoding for now or need to pass vendors prop */}
+                <option value="1">Swift Transport</option>
+                <option value="2">City Cabs</option>
+                <option value="3">Metro Rides</option>
               </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Employee
+              </label>
+              <input
+                type="text"
+                placeholder="Employee ID"
+                value={filters.employee}
+                onChange={(e) => handleFilterChange('employee', e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -275,122 +252,83 @@ export function TripMonitoring() {
                 <option value="incentive_applied">Incentive Applied</option>
               </select>
             </div>
-            <div className="flex items-end">
-              <Button onClick={clearFilters} variant="outline" className="w-full">
-                Clear Filters
-              </Button>
-            </div>
           </div>
         </CardContent>
       </Card>
 
-      {/* Trip Details Table */}
+      {/* Trips Table */}
       <Card>
         <CardHeader>
           <CardTitle>Trip Details</CardTitle>
           <CardDescription>
-            Detailed view of all trips with cost breakdown and validation
+            Detailed view of all trips matching your filters
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="rounded-md border">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Date & Time</TableHead>
-                  <TableHead>Employee</TableHead>
-                  <TableHead>Vendor</TableHead>
-                  <TableHead>Route</TableHead>
-                  <TableHead>Duration</TableHead>
-                  <TableHead className="text-right">Distance</TableHead>
-                  <TableHead className="text-right">Cost</TableHead>
-                  <TableHead>Trip Type</TableHead>
-                  <TableHead>Incentive</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {trips.map((trip) => (
-                  <TableRow key={trip.id}>
-                    <TableCell>
-                      <div>
-                        <div className="font-medium">{formatDate(trip.date)}</div>
-                        <div className="text-sm text-gray-500">
-                          {trip.time.pickup} - {trip.time.drop}
-                        </div>
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <div>
-                        <div className="font-medium">{trip.employee.name}</div>
-                        <div className="text-sm text-gray-500">
-                          {trip.employee.empId} | {trip.employee.department}
-                        </div>
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <span className="font-medium">{trip.vendor}</span>
-                    </TableCell>
-                    <TableCell>
-                      <div>
-                        <div className="text-sm">
-                          <span className="text-green-600">{trip.route.pickup}</span>
-                          <span className="mx-1">→</span>
-                          <span className="text-red-600">{trip.route.drop}</span>
-                        </div>
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <span className="text-sm">{trip.time.duration}</span>
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <span className="font-medium">{trip.route.distance} km</span>
-                      {trip.overLimit.km > 0 && (
-                        <div className="text-xs text-red-600">
-                          +{trip.overLimit.km} km over
-                        </div>
-                      )}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <div>
-                        <div className="font-medium">{formatCurrency(trip.cost.total)}</div>
-                        {trip.cost.extra > 0 && (
-                          <div className="text-xs text-orange-600">
-                            +{formatCurrency(trip.cost.extra)} extra
-                          </div>
-                        )}
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getTripTypeBadge(trip.tripType)}`}>
-                        {getTripTypeLabel(trip.tripType)}
-                      </span>
-                    </TableCell>
-                    <TableCell>
-                      {trip.incentive.applied ? (
-                        <div>
-                          <div className="text-sm font-medium text-green-600">
-                            {formatCurrency(trip.incentive.amount)}
-                          </div>
-                          <div className="text-xs text-gray-500">
-                            {trip.incentive.reason}
-                          </div>
-                        </div>
-                      ) : (
-                        <span className="text-sm text-gray-400">No incentive</span>
-                      )}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <Button variant="outline" size="sm">
-                        <Eye className="w-4 h-4 mr-1" />
-                        View
-                      </Button>
-                    </TableCell>
+          {loading ? (
+            <div className="text-center py-8 text-gray-500">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600 mx-auto mb-2"></div>
+              <p>Loading trips...</p>
+            </div>
+          ) : trips.length === 0 ? (
+            <div className="text-center py-8 text-gray-500">
+              <FileText className="w-12 h-12 mx-auto mb-3 text-gray-400" />
+              <p>No trips found for the selected filters</p>
+            </div>
+          ) : (
+            <div className="rounded-md border">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Trip ID</TableHead>
+                    <TableHead>Date</TableHead>
+                    <TableHead>Employee</TableHead>
+                    <TableHead>Vendor</TableHead>
+                    <TableHead>Route</TableHead>
+                    <TableHead className="text-right">Distance</TableHead>
+                    <TableHead className="text-right">Duration</TableHead>
+                    <TableHead className="text-right">Cost</TableHead>
+                    <TableHead>Type</TableHead>
+                    <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </div>
+                </TableHeader>
+                <TableBody>
+                  {trips.map((trip) => (
+                    <TableRow key={trip.tripId || trip.trip_id}>
+                      <TableCell className="font-medium">{trip.tripId || trip.trip_id}</TableCell>
+                      <TableCell>{formatDate(trip.date)}</TableCell>
+                      <TableCell>
+                        <div>
+                          <div className="font-medium">{trip.employee?.name}</div>
+                          <div className="text-sm text-gray-500">{trip.employee?.id}</div>
+                        </div>
+                      </TableCell>
+                      <TableCell>{trip.vendor?.name}</TableCell>
+                      <TableCell>
+                        <div className="text-sm">
+                          <div>{trip.route?.pickup}</div>
+                          <div className="text-gray-500">→ {trip.route?.drop}</div>
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-right">{trip.route?.distanceKm || trip.route?.distance_km} km</TableCell>
+                      <TableCell className="text-right">{trip.time?.durationMinutes || trip.time?.duration_minutes} min</TableCell>
+                      <TableCell className="text-right">{formatCurrency(trip.cost?.total || 0)}</TableCell>
+                      <TableCell>
+                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getTripTypeBadge(trip.tripType || trip.trip_type)}`}>
+                          {getTripTypeLabel(trip.tripType || trip.trip_type)}
+                        </span>
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <Button variant="ghost" size="sm">
+                          <Eye className="w-4 h-4" />
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>

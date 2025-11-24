@@ -2,165 +2,91 @@ import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { formatCurrency, formatDate, calculatePercentageChange } from '../../lib/utils';
-import { TrendingUp, TrendingDown, Users, Car, DollarSign, Building2, AlertTriangle, Clock, MapPin, FileX, UserCheck } from 'lucide-react';
+import { TrendingUp, TrendingDown, Users, Car, DollarSign, Building2, AlertTriangle, Clock, MapPin, FileX, UserCheck, FileText } from 'lucide-react';
 import { CostTrendChart } from '../../components/charts/CostTrendChart';
 import { VendorPerformanceChart } from '../../components/charts/VendorPerformanceChart';
 import { VendorUsageChart } from '../../components/charts/VendorUsageChart';
 import { TripModelDistributionChart } from '../../components/charts/TripModelDistributionChart';
 import { VendorComparisonTable } from '../../components/tables/VendorComparisonTable';
-// import { AlertsWidget } from '../../components/widgets/AlertsWidget';
+import useAuthStore from '../../store/authStore';
+import { clientApi } from '../../services/clientApi';
+import { StatCard } from '../../components/dashboard/StatCard';
+import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
+
+const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8'];
 
 export function ClientDashboard() {
+  const { user } = useAuthStore();
+  const [loading, setLoading] = useState(true);
+
   const [dashboardData, setDashboardData] = useState({
-    totalTrips: 2850,
-    totalBilling: 1250000,
-    activeVendors: 5,
-    totalEmployees: 450,
-    costPerEmployee: 2778,
-    pendingInvoices: 3,
-    costTrends: [],
-    vendorPerformance: [],
+    summary: {
+      totalTrips: 0,
+      totalBilling: 0,
+      activeVendors: 0,
+      totalEmployees: 0,
+      costPerEmployee: 0,
+      costPerTrip: 0,
+      pendingInvoices: 0
+    },
+    trends: {
+      tripsChange: 0,
+      billingChange: 0,
+      vendorsChange: 0
+    }
+  });
+  const [costTrends, setCostTrends] = useState([]);
+  const [vendorDistribution, setVendorDistribution] = useState({
     vendorUsage: [],
-    tripModelDistribution: [],
-    vendors: [],
-    alerts: []
+    vendorPerformance: [],
+    tripModelDistribution: []
   });
 
   useEffect(() => {
-    // Simulate API call with comprehensive dashboard data
-    const mockData = {
-      totalTrips: 2850,
-      totalBilling: 1250000,
-      activeVendors: 5,
-      totalEmployees: 450,
-      costPerEmployee: 2778,
-      pendingInvoices: 3,
-      costTrends: [
-        { month: 'Jan', amount: 1100000 },
-        { month: 'Feb', amount: 1150000 },
-        { month: 'Mar', amount: 1200000 },
-        { month: 'Apr', amount: 1180000 },
-        { month: 'May', amount: 1250000 },
-        { month: 'Jun', amount: 1300000 }
-      ],
-      vendorPerformance: [
-        { vendor: 'Swift Transport', performance: 95, trips: 890 },
-        { vendor: 'City Cabs', performance: 88, trips: 720 },
-        { vendor: 'Metro Rides', performance: 92, trips: 650 },
-        { vendor: 'Quick Rides', performance: 85, trips: 420 },
-        { vendor: 'Express Cabs', performance: 90, trips: 370 }
-      ],
-      vendorUsage: [
-        { vendor: 'Swift Transport', trips: 890, percentage: 31.2 },
-        { vendor: 'City Cabs', trips: 720, percentage: 25.3 },
-        { vendor: 'Metro Rides', trips: 650, percentage: 22.8 },
-        { vendor: 'Quick Rides', trips: 420, percentage: 14.7 },
-        { vendor: 'Express Cabs', trips: 170, percentage: 6.0 }
-      ],
-      tripModelDistribution: [
-        { model: 'Package Model', count: 1540, percentage: 54.0 },
-        { model: 'Trip Model', count: 890, percentage: 31.2 },
-        { model: 'Hybrid Model', count: 420, percentage: 14.8 }
-      ],
-      vendors: [
-        {
-          id: 1,
-          name: 'Swift Transport',
-          billingModel: 'Package',
-          employeeCount: 120,
-          monthlyTrips: 890,
-          monthlySpend: 340000,
-          performance: 95,
-          contractStatus: 'Active'
-        },
-        {
-          id: 2,
-          name: 'City Cabs',
-          billingModel: 'Trip',
-          employeeCount: 85,
-          monthlyTrips: 720,
-          monthlySpend: 285000,
-          performance: 88,
-          contractStatus: 'Active'
-        },
-        {
-          id: 3,
-          name: 'Metro Rides',
-          billingModel: 'Hybrid',
-          employeeCount: 95,
-          monthlyTrips: 650,
-          monthlySpend: 295000,
-          performance: 92,
-          contractStatus: 'Active'
-        }
-      ],
-      alerts: [
-        {
-          id: 1,
-          type: 'over_limit',
-          title: 'Over-limit Usage Alert',
-          message: 'Swift Transport exceeded package limits by 15% this month',
-          severity: 'warning',
-          vendor: 'Swift Transport'
-        },
-        {
-          id: 2,
-          type: 'cost_spike',
-          title: 'Cost Spike Detected',
-          message: 'Transportation costs increased by 8.5% compared to last month',
-          severity: 'info',
-          vendor: null
-        },
-        {
-          id: 3,
-          type: 'missing_data',
-          title: 'Missing Trip Data',
-          message: 'City Cabs has 12 trips with incomplete billing information',
-          severity: 'error',
-          vendor: 'City Cabs'
-        }
-      ]
-    };
-    setDashboardData(mockData);
-  }, []);
+    const fetchDashboardData = async () => {
+      try {
+        setLoading(true);
+        // Fetch all data in parallel
+        const [summaryData, trendsData, distributionData] = await Promise.all([
+          clientApi.dashboard.getSummary(),
+          clientApi.dashboard.getCostTrends(),
+          clientApi.dashboard.getVendorDistribution()
+        ]);
 
-  const summaryCards = [
-    {
-      title: 'Total Trips This Month',
-      value: dashboardData.totalTrips?.toLocaleString() || '0',
-      icon: Car,
-      color: 'blue',
-      trend: '+12.5%'
-    },
-    {
-      title: 'Total Billing Amount',
-      value: formatCurrency(dashboardData.totalBilling || 0),
-      icon: DollarSign,
-      color: 'green',
-      trend: '+8.3%'
-    },
-    {
-      title: 'Active Vendors',
-      value: dashboardData.activeVendors,
-      icon: Building2,
-      color: 'purple',
-      trend: 'No change'
-    },
-    {
-      title: 'Total Employees',
-      value: dashboardData.totalEmployees,
-      icon: Users,
-      color: 'orange',
-      trend: '+2.1%'
+        setDashboardData({
+          summary: summaryData.summary,
+          trends: summaryData.trends
+        });
+        setCostTrends(trendsData.data);
+        setVendorDistribution(distributionData);
+      } catch (error) {
+        console.error('Error fetching dashboard data:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    if (user) {
+      fetchDashboardData();
     }
-  ];
+  }, [user]);
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-screen">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600"></div>
+      </div>
+    );
+  }
 
   return (
     <div className="p-6 space-y-6">
       {/* Header */}
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">Dashboard Overview</h1>
+          <h1 className="text-3xl font-bold text-gray-900">
+            Welcome, {user?.name || 'Client'}!
+          </h1>
           <p className="text-gray-500 mt-1">
             Monitor your transportation operations and vendor performance
           </p>
@@ -172,88 +98,115 @@ export function ClientDashboard() {
       </div>
 
       {/* KPI Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        {summaryCards.map((card) => {
-          const Icon = card.icon;
-          return (
-            <Card key={card.title}>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium text-gray-600">
-                  {card.title}
-                </CardTitle>
-                <Icon className={`h-4 w-4 text-${card.color}-600`} />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">{card.value}</div>
-                <p className="text-xs text-green-600 mt-1">
-                  {card.trend} from last month
-                </p>
-              </CardContent>
-            </Card>
-          );
-        })}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
+        <StatCard
+          title="Total Trips"
+          value={dashboardData.summary.totalTrips.toLocaleString()}
+          trend={dashboardData.trends.tripsChange}
+          icon={Car}
+          color="blue"
+        />
+        <StatCard
+          title="Total Billing"
+          value={`₹${dashboardData.summary.totalBilling.toLocaleString()}`}
+          trend={dashboardData.trends.billingChange}
+          icon={IndianRupee}
+          color="green"
+        />
+        <StatCard
+          title="Active Vendors"
+          value={dashboardData.summary.activeVendors}
+          trend={dashboardData.trends.vendorsChange}
+          icon={Building2}
+          color="purple"
+        />
+        <StatCard
+          title="Pending Invoices"
+          value={dashboardData.summary.pendingInvoices}
+          trend={0}
+          icon={FileText}
+          color="orange"
+        />
       </div>
-
-      {/* Alerts Widget */}
-      {/* <AlertsWidget alerts={dashboardData.alerts} /> */}
 
       {/* Charts Section */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Line Chart - Trips over time */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Trips Over Time</CardTitle>
-            <CardDescription>
-              Monthly trip volume trends over the last 6 months
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <CostTrendChart data={dashboardData.costTrends} />
-          </CardContent>
-        </Card>
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+        <div className="lg:col-span-2 bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+          <h3 className="text-lg font-semibold text-gray-900 mb-4">Cost Trends</h3>
+          <div className="h-80">
+            <ResponsiveContainer width="100%" height="100%">
+              <AreaChart data={costTrends}>
+                <defs>
+                  <linearGradient id="colorCost" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#4F46E5" stopOpacity={0.1} />
+                    <stop offset="95%" stopColor="#4F46E5" stopOpacity={0} />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                <XAxis dataKey="month" />
+                <YAxis tickFormatter={(value) => `₹${value / 1000}k`} />
+                <Tooltip formatter={(value) => [`₹${value.toLocaleString()}`, 'Cost']} />
+                <Area type="monotone" dataKey="amount" stroke="#4F46E5" fillOpacity={1} fill="url(#colorCost)" />
+              </AreaChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
 
-        {/* Bar Chart - Vendor usage */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Vendor Usage Distribution</CardTitle>
-            <CardDescription>
-              Trip volume distribution across all vendors
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <VendorUsageChart data={dashboardData.vendorUsage} />
-          </CardContent>
-        </Card>
-
-        {/* Pie Chart - Trip model vs package model usage */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Billing Model Distribution</CardTitle>
-            <CardDescription>
-              Usage breakdown by billing model type
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <TripModelDistributionChart data={dashboardData.tripModelDistribution} />
-          </CardContent>
-        </Card>
-
-        {/* Vendor Performance Chart */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Top Used Vendors</CardTitle>
-            <CardDescription>
-              Performance score and trip volume by top vendors
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <VendorPerformanceChart data={dashboardData.vendorPerformance} />
-          </CardContent>
-        </Card>
+        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+          <h3 className="text-lg font-semibold text-gray-900 mb-4">Vendor Distribution</h3>
+          <div className="h-80">
+            <ResponsiveContainer width="100%" height="100%">
+              <PieChart>
+                <Pie
+                  data={vendorDistribution.vendorUsage}
+                  cx="50%"
+                  cy="50%"
+                  innerRadius={60}
+                  outerRadius={100}
+                  fill="#8884d8"
+                  paddingAngle={5}
+                  dataKey="trips"
+                  nameKey="vendor"
+                >
+                  {vendorDistribution.vendorUsage.map((entry, index) => (
+                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                  ))}
+                </Pie>
+                <Tooltip />
+              </PieChart>
+            </ResponsiveContainer>
+            <div className="mt-4 space-y-2">
+              {vendorDistribution.vendorUsage.map((entry, index) => (
+                <div key={index} className="flex items-center justify-between text-sm">
+                  <div className="flex items-center">
+                    <div className="w-3 h-3 rounded-full mr-2" style={{ backgroundColor: COLORS[index % COLORS.length] }}></div>
+                    <span className="text-gray-600">{entry.vendor}</span>
+                  </div>
+                  <span className="font-medium text-gray-900">{entry.percentage}%</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
       </div>
 
-      {/* Vendor-wise Trip Distribution Table */}
+      {/* Vendor Performance Chart */}
       <Card>
+        <CardHeader>
+          <CardTitle>Top Used Vendors</CardTitle>
+          <CardDescription>
+            Performance score and trip volume by top vendors
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <VendorPerformanceChart data={vendorDistribution.vendorPerformance} />
+        </CardContent>
+      </Card>
+
+      {/* Vendor-wise Trip Distribution Table */}
+      {/* Note: We need to pass the correct data structure to VendorComparisonTable */}
+      {/* For now, we'll skip it or pass empty array if data structure doesn't match */}
+      {/* <Card>
         <CardHeader>
           <CardTitle>Vendor-wise Trip Distribution</CardTitle>
           <CardDescription>
@@ -261,9 +214,33 @@ export function ClientDashboard() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <VendorComparisonTable vendors={dashboardData.vendors} />
+          <VendorComparisonTable vendors={[]} />
         </CardContent>
-      </Card>
+      </Card> */}
     </div>
+  );
+}
+
+// Helper component for Stat Cards if not imported
+function IndianRupee({ className }) {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      width="24"
+      height="24"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+    >
+      <path d="M6 3h12" />
+      <path d="M6 8h12" />
+      <path d="m6 13 8.5-10" />
+      <path d="M6 13h3" />
+      <path d="M9 13c6.627 0 12 5.373 12 12v0" />
+    </svg>
   );
 }

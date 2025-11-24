@@ -3,13 +3,13 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../..
 import { Button } from '../../components/ui/Button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../components/ui/Table';
 import { formatCurrency, formatDate } from '../../lib/utils';
-import { 
-  FileText, 
-  Download, 
-  Calendar, 
-  Filter, 
-  Car, 
-  DollarSign, 
+import {
+  FileText,
+  Download,
+  Calendar,
+  Filter,
+  Car,
+  DollarSign,
   TrendingUp,
   Users,
   BarChart3,
@@ -18,6 +18,7 @@ import {
   CheckCircle,
   AlertTriangle
 } from 'lucide-react';
+import useAuthStore from '../../store/authStore';
 
 export function VendorReports() {
   const [reportData, setReportData] = useState({
@@ -27,154 +28,44 @@ export function VendorReports() {
     performanceReports: [],
     vehicleUtilization: []
   });
-  const [selectedMonth, setSelectedMonth] = useState('2024-11');
+  const [selectedMonth, setSelectedMonth] = useState('2025-11');
   const [selectedReport, setSelectedReport] = useState('trip-summary');
   const [generating, setGenerating] = useState(false);
-
   useEffect(() => {
-    // Mock comprehensive vendor reports data
-    const mockReportData = {
-      summary: {
-        month: '2024-11',
-        totalTrips: 127,
-        completedTrips: 119,
-        disputedTrips: 3,
-        cancelledTrips: 5,
-        totalEarnings: 285750,
-        avgRating: 4.6,
-        utilizationRate: 87.5,
-        onTimePerformance: 94.2
-      },
-      tripReports: [
-        {
-          date: '2024-11-21',
-          totalTrips: 8,
-          completedTrips: 7,
-          cancelledTrips: 1,
-          averageDistance: 18.5,
-          totalEarnings: 2340,
-          disputes: 0,
-          vehicles: ['VH001', 'VH002']
-        },
-        {
-          date: '2024-11-20',
-          totalTrips: 12,
-          completedTrips: 11,
-          cancelledTrips: 1,
-          averageDistance: 22.1,
-          totalEarnings: 3150,
-          disputes: 1,
-          vehicles: ['VH001', 'VH002', 'VH003']
-        },
-        {
-          date: '2024-11-19',
-          totalTrips: 9,
-          completedTrips: 9,
-          cancelledTrips: 0,
-          averageDistance: 15.8,
-          totalEarnings: 2580,
-          disputes: 0,
-          vehicles: ['VH001', 'VH002']
+    const fetchReportData = async () => {
+      try {
+        setGenerating(true);
+        const token = useAuthStore.getState().accessToken;
+        const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8001';
+        console.log('Using API URL:', API_BASE_URL);
+
+        if (!token) {
+          console.error('No access token available');
+          setGenerating(false);
+          return;
         }
-      ],
-      earningsReports: [
-        {
-          month: '2024-11',
-          baseEarnings: 220000,
-          extraKmEarnings: 35500,
-          extraHourEarnings: 18250,
-          incentiveEarnings: 12000,
-          totalEarnings: 285750,
-          trips: 127,
-          avgEarningsPerTrip: 2250
-        },
-        {
-          month: '2024-10',
-          baseEarnings: 205000,
-          extraKmEarnings: 32000,
-          extraHourEarnings: 16500,
-          incentiveEarnings: 15000,
-          totalEarnings: 268500,
-          trips: 119,
-          avgEarningsPerTrip: 2256
-        },
-        {
-          month: '2024-09',
-          baseEarnings: 198000,
-          extraKmEarnings: 28200,
-          extraHourEarnings: 15000,
-          incentiveEarnings: 10000,
-          totalEarnings: 251200,
-          trips: 108,
-          avgEarningsPerTrip: 2326
+
+        const response = await fetch(`${API_BASE_URL}/api/v1/vendor/reports?month=${selectedMonth}`, {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          setReportData(data);
+          console.log('✅ Vendor report data loaded:', data);
+        } else {
+          console.error('❌ Failed to fetch report data, status:', response.status);
         }
-      ],
-      performanceReports: [
-        {
-          driver: 'Ramesh Kumar',
-          vehicle: 'VH001',
-          trips: 45,
-          completedTrips: 43,
-          rating: 4.8,
-          onTime: 96.7,
-          earnings: 12500,
-          disputes: 0
-        },
-        {
-          driver: 'Suresh Patel',
-          vehicle: 'VH002',
-          trips: 38,
-          completedTrips: 36,
-          rating: 4.5,
-          onTime: 92.1,
-          earnings: 10200,
-          disputes: 1
-        },
-        {
-          driver: 'Manoj Singh',
-          vehicle: 'VH003',
-          trips: 44,
-          completedTrips: 40,
-          rating: 4.4,
-          onTime: 90.9,
-          earnings: 11800,
-          disputes: 2
-        }
-      ],
-      vehicleUtilization: [
-        {
-          vehicle: 'VH001',
-          type: 'Sedan',
-          totalHours: 180,
-          activeHours: 156,
-          utilization: 86.7,
-          trips: 45,
-          earnings: 12500,
-          maintenanceHours: 4
-        },
-        {
-          vehicle: 'VH002',
-          type: 'SUV',
-          totalHours: 180,
-          activeHours: 142,
-          utilization: 78.9,
-          trips: 38,
-          earnings: 10200,
-          maintenanceHours: 8
-        },
-        {
-          vehicle: 'VH003',
-          type: 'Sedan',
-          totalHours: 180,
-          activeHours: 165,
-          utilization: 91.7,
-          trips: 44,
-          earnings: 11800,
-          maintenanceHours: 2
-        }
-      ]
+      } catch (error) {
+        console.error('❌ Error fetching reports:', error);
+      } finally {
+        setGenerating(false);
+      }
     };
-    setReportData(mockReportData);
+
+    fetchReportData();
   }, [selectedMonth]);
 
   const generateReport = async (format, reportType) => {
@@ -335,11 +226,10 @@ export function VendorReports() {
                         <TableCell>{report.vehicle}</TableCell>
                         <TableCell className="text-right">{report.trips}</TableCell>
                         <TableCell className="text-right">
-                          <span className={`${
-                            (report.completedTrips / report.trips) * 100 >= 95 
-                              ? 'text-green-600' 
-                              : 'text-yellow-600'
-                          }`}>
+                          <span className={`${(report.completedTrips / report.trips) * 100 >= 95
+                            ? 'text-green-600'
+                            : 'text-yellow-600'
+                            }`}>
                             {Math.round((report.completedTrips / report.trips) * 100)}%
                           </span>
                         </TableCell>
@@ -350,9 +240,8 @@ export function VendorReports() {
                           </div>
                         </TableCell>
                         <TableCell className="text-right">
-                          <span className={`${
-                            report.onTime >= 95 ? 'text-green-600' : 'text-yellow-600'
-                          }`}>
+                          <span className={`${report.onTime >= 95 ? 'text-green-600' : 'text-yellow-600'
+                            }`}>
                             {report.onTime}%
                           </span>
                         </TableCell>
@@ -407,10 +296,9 @@ export function VendorReports() {
                         <TableCell className="text-right">{report.totalHours}h</TableCell>
                         <TableCell className="text-right">{report.activeHours}h</TableCell>
                         <TableCell className="text-right">
-                          <span className={`${
-                            report.utilization >= 85 ? 'text-green-600' : 
+                          <span className={`${report.utilization >= 85 ? 'text-green-600' :
                             report.utilization >= 70 ? 'text-yellow-600' : 'text-red-600'
-                          }`}>
+                            }`}>
                             {report.utilization}%
                           </span>
                         </TableCell>
@@ -449,9 +337,9 @@ export function VendorReports() {
             onChange={(e) => setSelectedMonth(e.target.value)}
             className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
           >
-            <option value="2024-11">November 2024</option>
-            <option value="2024-10">October 2024</option>
-            <option value="2024-09">September 2024</option>
+            <option value="2025-11">November 2025</option>
+            <option value="2025-10">October 2025</option>
+            <option value="2025-09">September 2025</option>
           </select>
           <Button variant="outline">
             <Calendar className="w-4 h-4 mr-2" />
@@ -539,20 +427,17 @@ export function VendorReports() {
                 <button
                   key={reportType.value}
                   onClick={() => setSelectedReport(reportType.value)}
-                  className={`p-4 border rounded-lg text-left transition-all hover:shadow-md ${
-                    selectedReport === reportType.value
-                      ? 'border-blue-500 bg-blue-50'
-                      : 'border-gray-200 hover:border-gray-300'
-                  }`}
+                  className={`p-4 border rounded-lg text-left transition-all hover:shadow-md ${selectedReport === reportType.value
+                    ? 'border-blue-500 bg-blue-50'
+                    : 'border-gray-200 hover:border-gray-300'
+                    }`}
                 >
                   <div className="flex items-center space-x-3">
-                    <Icon className={`w-6 h-6 ${
-                      selectedReport === reportType.value ? 'text-blue-600' : 'text-gray-600'
-                    }`} />
+                    <Icon className={`w-6 h-6 ${selectedReport === reportType.value ? 'text-blue-600' : 'text-gray-600'
+                      }`} />
                     <div>
-                      <h4 className={`font-medium ${
-                        selectedReport === reportType.value ? 'text-blue-900' : 'text-gray-900'
-                      }`}>
+                      <h4 className={`font-medium ${selectedReport === reportType.value ? 'text-blue-900' : 'text-gray-900'
+                        }`}>
                         {reportType.label}
                       </h4>
                     </div>
@@ -577,16 +462,16 @@ export function VendorReports() {
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <Button 
-              onClick={() => generateReport('pdf', selectedReport)} 
+            <Button
+              onClick={() => generateReport('pdf', selectedReport)}
               disabled={generating}
               className="h-20 flex-col"
             >
               <FileText className="w-8 h-8 mb-2" />
               <span>Export as PDF</span>
             </Button>
-            <Button 
-              onClick={() => generateReport('excel', selectedReport)} 
+            <Button
+              onClick={() => generateReport('excel', selectedReport)}
               disabled={generating}
               className="h-20 flex-col"
               variant="outline"
@@ -594,8 +479,8 @@ export function VendorReports() {
               <Download className="w-8 h-8 mb-2" />
               <span>Export as Excel</span>
             </Button>
-            <Button 
-              onClick={() => generateReport('csv', selectedReport)} 
+            <Button
+              onClick={() => generateReport('csv', selectedReport)}
               disabled={generating}
               className="h-20 flex-col"
               variant="outline"

@@ -3,23 +3,23 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../..
 import { Button } from '../../components/ui/Button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../components/ui/Table';
 import { formatCurrency, formatDate } from '../../lib/utils';
-import { 
-  Car, 
-  CheckCircle, 
-  Clock, 
-  XCircle, 
-  DollarSign, 
-  TrendingUp, 
-  Users, 
+import useAuthStore from '../../store/authStore';
+import {
+  Car,
+  CheckCircle,
+  Clock,
+  XCircle,
+  DollarSign,
+  TrendingUp,
+  Users,
   MapPin,
   Star,
   AlertTriangle
 } from 'lucide-react';
-// import { TripStatusChart } from '../../components/charts/TripStatusChart';
-// import { VehicleUtilizationChart } from '../../components/charts/VehicleUtilizationChart';
-// import { PayoutTrendChart } from '../../components/charts/PayoutTrendChart';
 
 export function VendorDashboard() {
+  const { user } = useAuthStore();
+
   const [dashboardData, setDashboardData] = useState({
     todayTrips: {
       completed: 0,
@@ -37,121 +37,44 @@ export function VendorDashboard() {
     drivers: [],
     recentTrips: []
   });
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Mock vendor dashboard data
-    const mockData = {
-      todayTrips: {
-        completed: 28,
-        pending: 7,
-        cancelled: 2,
-        total: 37
-      },
-      payoutSummary: {
-        totalPayout: 85750,
-        baseAmount: 68000,
-        incentives: 12500,
-        extraCharges: 5250
-      },
-      vehicles: [
-        {
-          id: 'VH001',
-          type: 'Sedan',
-          capacity: 4,
-          driver: 'Ramesh Kumar',
-          status: 'Active',
-          todayTrips: 8,
-          utilization: 89,
-          rating: 4.7
-        },
-        {
-          id: 'VH002',
-          type: 'SUV',
-          capacity: 7,
-          driver: 'Suresh Patel',
-          status: 'Active',
-          todayTrips: 6,
-          utilization: 75,
-          rating: 4.5
-        },
-        {
-          id: 'VH003',
-          type: 'Sedan',
-          capacity: 4,
-          driver: 'Manoj Singh',
-          status: 'Maintenance',
-          todayTrips: 0,
-          utilization: 0,
-          rating: 4.6
+    const fetchDashboardData = async () => {
+      try {
+        // Get token from authStore
+        const token = useAuthStore.getState().accessToken;
+
+        if (!token) {
+          console.error('No access token available');
+          setLoading(false);
+          return;
         }
-      ],
-      drivers: [
-        {
-          id: 'DR001',
-          name: 'Ramesh Kumar',
-          vehicle: 'VH001',
-          todayTrips: 8,
-          rating: 4.7,
-          earnings: 2250,
-          status: 'Active'
-        },
-        {
-          id: 'DR002',
-          name: 'Suresh Patel',
-          vehicle: 'VH002',
-          todayTrips: 6,
-          rating: 4.5,
-          earnings: 1890,
-          status: 'Active'
+
+        const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/v1/vendor/dashboard`, {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          setDashboardData(data);
+          console.log('✅ Vendor dashboard data loaded:', data);
+        } else {
+          console.error('❌ Failed to fetch dashboard data, status:', response.status);
         }
-      ],
-      recentTrips: [
-        {
-          id: 'T001',
-          date: '2024-11-21',
-          time: '09:15 AM',
-          client: 'TechCorp',
-          employee: 'John Doe',
-          route: 'Electronic City → Koramangala',
-          distance: 15.2,
-          duration: 45,
-          amount: 285,
-          status: 'completed',
-          vehicle: 'VH001',
-          driver: 'Ramesh Kumar'
-        },
-        {
-          id: 'T002',
-          date: '2024-11-21',
-          time: '10:30 AM',
-          client: 'StartupHub',
-          employee: 'Jane Smith',
-          route: 'Whitefield → Brigade Road',
-          distance: 22.8,
-          duration: 65,
-          amount: 420,
-          status: 'completed',
-          vehicle: 'VH002',
-          driver: 'Suresh Patel'
-        },
-        {
-          id: 'T003',
-          date: '2024-11-21',
-          time: '02:15 PM',
-          client: 'FinanceInc',
-          employee: 'Mike Johnson',
-          route: 'Indiranagar → Airport',
-          distance: 28.5,
-          duration: 0,
-          amount: 0,
-          status: 'pending',
-          vehicle: 'VH001',
-          driver: 'Ramesh Kumar'
-        }
-      ]
+      } catch (error) {
+        console.error('❌ Error fetching dashboard:', error);
+      } finally {
+        setLoading(false);
+      }
     };
-    setDashboardData(mockData);
-  }, []);
+
+    if (user) {
+      fetchDashboardData();
+    }
+  }, [user]);
 
   const getStatusIcon = (status) => {
     switch (status) {
@@ -197,7 +120,9 @@ export function VendorDashboard() {
       {/* Header */}
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">Vendor Dashboard</h1>
+          <h1 className="text-3xl font-bold text-gray-900">
+            Welcome, {user?.name || 'Vendor'}!
+          </h1>
           <p className="text-gray-500 mt-1">
             Monitor your fleet operations and track today's performance
           </p>
@@ -220,7 +145,7 @@ export function VendorDashboard() {
           <CardContent>
             <div className="text-2xl font-bold">{dashboardData.todayTrips.completed}</div>
             <p className="text-xs text-green-600 mt-1">
-              {Math.round((dashboardData.todayTrips.completed / dashboardData.todayTrips.total) * 100)}% of total
+              {dashboardData.todayTrips.total > 0 ? Math.round((dashboardData.todayTrips.completed / dashboardData.todayTrips.total) * 100) : 0}% of total
             </p>
           </CardContent>
         </Card>
@@ -265,7 +190,7 @@ export function VendorDashboard() {
           <CardContent>
             <div className="text-2xl font-bold">{formatCurrency(dashboardData.payoutSummary.totalPayout)}</div>
             <p className="text-xs text-green-600 mt-1">
-              +12.5% from yesterday
+              Based on completed trips
             </p>
           </CardContent>
         </Card>
@@ -324,29 +249,31 @@ export function VendorDashboard() {
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
-              {dashboardData.vehicles.map((vehicle) => (
-                <div key={vehicle.id} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
-                  <div className="flex items-center space-x-4">
-                    <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
-                      <Car className="w-5 h-5 text-blue-600" />
+              {dashboardData.vehicles.length > 0 ? (
+                dashboardData.vehicles.map((vehicle) => (
+                  <div key={vehicle.id} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+                    <div className="flex items-center space-x-4">
+                      <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
+                        <Car className="w-5 h-5 text-blue-600" />
+                      </div>
+                      <div>
+                        <p className="font-medium">{vehicle.id} - {vehicle.type}</p>
+                        <p className="text-sm text-gray-500">{vehicle.driver}</p>
+                      </div>
                     </div>
-                    <div>
-                      <p className="font-medium">{vehicle.id} - {vehicle.type}</p>
-                      <p className="text-sm text-gray-500">{vehicle.driver}</p>
+                    <div className="text-right">
+                      <div className="flex items-center space-x-2">
+                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${vehicle.status === 'Active' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
+                          {vehicle.status}
+                        </span>
+                      </div>
+                      <p className="text-sm text-gray-500 mt-1">{vehicle.utilization}% utilized</p>
                     </div>
                   </div>
-                  <div className="text-right">
-                    <div className="flex items-center space-x-2">
-                      <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                        vehicle.status === 'Active' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
-                      }`}>
-                        {vehicle.status}
-                      </span>
-                    </div>
-                    <p className="text-sm text-gray-500 mt-1">{vehicle.utilization}% utilized</p>
-                  </div>
-                </div>
-              ))}
+                ))
+              ) : (
+                <p className="text-gray-500 text-center py-4">No vehicles data available</p>
+              )}
             </div>
           </CardContent>
         </Card>
@@ -361,27 +288,31 @@ export function VendorDashboard() {
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
-              {dashboardData.drivers.map((driver) => (
-                <div key={driver.id} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
-                  <div className="flex items-center space-x-4">
-                    <div className="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center">
-                      <Users className="w-5 h-5 text-green-600" />
+              {dashboardData.drivers.length > 0 ? (
+                dashboardData.drivers.map((driver) => (
+                  <div key={driver.id} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+                    <div className="flex items-center space-x-4">
+                      <div className="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center">
+                        <Users className="w-5 h-5 text-green-600" />
+                      </div>
+                      <div>
+                        <p className="font-medium">{driver.name}</p>
+                        <p className="text-sm text-gray-500">Vehicle: {driver.vehicle}</p>
+                      </div>
                     </div>
-                    <div>
-                      <p className="font-medium">{driver.name}</p>
-                      <p className="text-sm text-gray-500">Vehicle: {driver.vehicle}</p>
+                    <div className="text-right">
+                      <div className="flex items-center space-x-1">
+                        <Star className="w-4 h-4 text-yellow-500 fill-current" />
+                        <span className="font-medium">{driver.rating}</span>
+                      </div>
+                      <p className="text-sm text-gray-500">{driver.todayTrips} trips</p>
+                      <p className="text-sm font-medium text-green-600">{formatCurrency(driver.earnings)}</p>
                     </div>
                   </div>
-                  <div className="text-right">
-                    <div className="flex items-center space-x-1">
-                      <Star className="w-4 h-4 text-yellow-500 fill-current" />
-                      <span className="font-medium">{driver.rating}</span>
-                    </div>
-                    <p className="text-sm text-gray-500">{driver.todayTrips} trips</p>
-                    <p className="text-sm font-medium text-green-600">{formatCurrency(driver.earnings)}</p>
-                  </div>
-                </div>
-              ))}
+                ))
+              ) : (
+                <p className="text-gray-500 text-center py-4">No drivers data available</p>
+              )}
             </div>
           </CardContent>
         </Card>
@@ -396,61 +327,65 @@ export function VendorDashboard() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="rounded-md border">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Trip ID</TableHead>
-                  <TableHead>Time</TableHead>
-                  <TableHead>Client</TableHead>
-                  <TableHead>Route</TableHead>
-                  <TableHead>Vehicle</TableHead>
-                  <TableHead className="text-right">Distance</TableHead>
-                  <TableHead className="text-right">Amount</TableHead>
-                  <TableHead>Status</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {dashboardData.recentTrips.map((trip) => {
-                  const StatusIcon = getStatusIcon(trip.status);
-                  return (
-                    <TableRow key={trip.id}>
-                      <TableCell className="font-medium">{trip.id}</TableCell>
-                      <TableCell>{trip.time}</TableCell>
-                      <TableCell>{trip.client}</TableCell>
-                      <TableCell>
-                        <div className="text-sm">
-                          {trip.route.split(' → ').map((location, index, array) => (
-                            <span key={index}>
-                              {index === 0 ? (
-                                <span className="text-green-600">{location}</span>
-                              ) : (
-                                <span className="text-red-600">{location}</span>
-                              )}
-                              {index < array.length - 1 && <span className="mx-1 text-gray-400">→</span>}
+          {dashboardData.recentTrips.length > 0 ? (
+            <div className="rounded-md border">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Trip ID</TableHead>
+                    <TableHead>Time</TableHead>
+                    <TableHead>Client</TableHead>
+                    <TableHead>Route</TableHead>
+                    <TableHead>Vehicle</TableHead>
+                    <TableHead className="text-right">Distance</TableHead>
+                    <TableHead className="text-right">Amount</TableHead>
+                    <TableHead>Status</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {dashboardData.recentTrips.map((trip) => {
+                    const StatusIcon = getStatusIcon(trip.status);
+                    return (
+                      <TableRow key={trip.id}>
+                        <TableCell className="font-medium">{trip.id}</TableCell>
+                        <TableCell>{trip.time}</TableCell>
+                        <TableCell>{trip.client}</TableCell>
+                        <TableCell>
+                          <div className="text-sm">
+                            {trip.route && trip.route.split(' → ').map((location, index, array) => (
+                              <span key={index}>
+                                {index === 0 ? (
+                                  <span className="text-green-600">{location}</span>
+                                ) : (
+                                  <span className="text-red-600">{location}</span>
+                                )}
+                                {index < array.length - 1 && <span className="mx-1 text-gray-400">→</span>}
+                              </span>
+                            ))}
+                          </div>
+                        </TableCell>
+                        <TableCell>{trip.vehicle}</TableCell>
+                        <TableCell className="text-right">{trip.distance} km</TableCell>
+                        <TableCell className="text-right">
+                          {trip.amount > 0 ? formatCurrency(trip.amount) : '-'}
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex items-center space-x-2">
+                            <StatusIcon className={`w-4 h-4 ${getStatusColor(trip.status)}`} />
+                            <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusBadge(trip.status)}`}>
+                              {trip.status.charAt(0).toUpperCase() + trip.status.slice(1)}
                             </span>
-                          ))}
-                        </div>
-                      </TableCell>
-                      <TableCell>{trip.vehicle}</TableCell>
-                      <TableCell className="text-right">{trip.distance} km</TableCell>
-                      <TableCell className="text-right">
-                        {trip.amount > 0 ? formatCurrency(trip.amount) : '-'}
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex items-center space-x-2">
-                          <StatusIcon className={`w-4 h-4 ${getStatusColor(trip.status)}`} />
-                          <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusBadge(trip.status)}`}>
-                            {trip.status.charAt(0).toUpperCase() + trip.status.slice(1)}
-                          </span>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  );
-                })}
-              </TableBody>
-            </Table>
-          </div>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            </div>
+          ) : (
+            <p className="text-gray-500 text-center py-8">No trips data available</p>
+          )}
         </CardContent>
       </Card>
     </div>

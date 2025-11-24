@@ -33,11 +33,6 @@ export function VendorHeader() {
           <span className="absolute top-0 right-0 h-2 w-2 bg-red-500 rounded-full"></span>
         </Button>
 
-        {/* Settings */}
-        <Button variant="ghost" size="icon">
-          <Settings className="w-5 h-5" />
-        </Button>
-
         {/* User Menu */}
         <div className="flex items-center space-x-3">
           <div className="flex items-center space-x-2">
@@ -46,9 +41,9 @@ export function VendorHeader() {
             </div>
             <div className="hidden md:block">
               <p className="text-sm font-medium text-gray-900">
-                {user?.name || 'Vendor Manager'}
+                {user?.firstName} {user?.lastName}
               </p>
-              <p className="text-xs text-gray-500">Swift Transport</p>
+              <p className="text-xs text-gray-500 capitalize">{user?.role || 'Vendor'}</p>
             </div>
           </div>
           

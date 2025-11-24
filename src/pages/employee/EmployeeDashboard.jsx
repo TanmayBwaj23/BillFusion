@@ -3,11 +3,12 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../..
 import { Button } from '../../components/ui/Button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../components/ui/Table';
 import { formatCurrency, formatDate } from '../../lib/utils';
-import { 
-  Star, 
-  Clock, 
-  MapPin, 
-  TrendingUp, 
+import api from '../../api/axios';
+import {
+  Star,
+  Clock,
+  MapPin,
+  TrendingUp,
   Calendar,
   Car,
   AlertTriangle,
@@ -25,96 +26,57 @@ export function EmployeeDashboard() {
     monthlyStats: {},
     delaysOvertime: {}
   });
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
   useEffect(() => {
-    // Mock employee dashboard data
-    const mockData = {
-      personalInfo: {
-        name: 'John Doe',
-        empId: 'EMP001',
-        department: 'Engineering',
-        company: 'TechCorp',
-        joinDate: '2023-01-15'
-      },
-      incentiveSummary: {
-        totalEarned: 4750,
-        thisMonth: 1250,
-        extraHours: 850,
-        lateShifts: 400,
-        weekendWork: 300,
-        overtimeBonus: 200
-      },
-      recentTrips: [
-        {
-          id: 'T001',
-          date: '2024-11-21',
-          time: '09:15 AM',
-          vendor: 'Swift Transport',
-          driver: 'Ramesh Kumar',
-          pickup: 'Electronic City Phase 1',
-          drop: 'Koramangala Office',
-          distance: 15.2,
-          duration: 45,
-          scheduledDuration: 35,
-          overtime: 10,
-          incentiveEarned: 75,
-          status: 'completed',
-          notes: 'Late start due to traffic'
-        },
-        {
-          id: 'T002',
-          date: '2024-11-21',
-          time: '07:30 PM',
-          vendor: 'City Cabs',
-          driver: 'Suresh Patel',
-          pickup: 'Koramangala Office',
-          drop: 'Electronic City Phase 1',
-          distance: 15.8,
-          duration: 50,
-          scheduledDuration: 35,
-          overtime: 15,
-          incentiveEarned: 125,
-          status: 'completed',
-          notes: 'Extra hours worked - eligible for overtime bonus'
-        },
-        {
-          id: 'T003',
-          date: '2024-11-20',
-          time: '09:00 AM',
-          vendor: 'Metro Rides',
-          driver: 'Manoj Singh',
-          pickup: 'Electronic City Phase 1',
-          drop: 'Koramangala Office',
-          distance: 14.5,
-          duration: 35,
-          scheduledDuration: 35,
-          overtime: 0,
-          incentiveEarned: 0,
-          status: 'completed',
-          notes: 'Regular commute - no overtime'
-        }
-      ],
-      monthlyStats: {
-        totalTrips: 42,
-        onTimeTrips: 38,
-        delayedTrips: 4,
-        avgCommuteDuration: 38,
-        totalCommuteTime: 1596, // in minutes
-        workingDaysAttended: 21,
-        overtimeDays: 8
-      },
-      delaysOvertime: {
-        avgDelay: 12, // minutes
-        maxDelay: 45,
-        totalOvertimeHours: 24.5,
-        overtimeReasons: [
-          { reason: 'Client meeting extended', count: 12, hours: 18 },
-          { reason: 'Project deadline', count: 8, hours: 14.5 },
-          { reason: 'Team collaboration', count: 5, hours: 8 }
-        ]
+    const fetchDashboardData = async () => {
+      try {
+        const response = await api.get('/api/v1/employee/dashboard');
+        const data = response.data;
+
+        setDashboardData({
+          personalInfo: {
+            name: data.personal_info.name,
+            empId: data.personal_info.emp_id,
+            department: data.personal_info.department,
+            company: data.personal_info.company,
+            joinDate: data.personal_info.join_date
+          },
+          incentiveSummary: {
+            totalEarned: data.incentive_summary.total_earned,
+            thisMonth: data.incentive_summary.this_month,
+            extraHours: data.incentive_summary.extra_hours,
+            lateShifts: data.incentive_summary.late_shifts,
+            weekendWork: data.incentive_summary.weekend_work,
+            overtimeBonus: data.incentive_summary.overtime_bonus
+          },
+          recentTrips: data.recent_trips || [],
+          monthlyStats: {
+            totalTrips: data.monthly_stats.total_trips,
+            onTimeTrips: data.monthly_stats.on_time_trips,
+            delayedTrips: data.monthly_stats.delayed_trips,
+            avgCommuteDuration: data.monthly_stats.avg_commute_duration,
+            totalCommuteTime: data.monthly_stats.total_commute_time,
+            workingDaysAttended: data.monthly_stats.working_days_attended,
+            overtimeDays: data.monthly_stats.overtime_days
+          },
+          delaysOvertime: {
+            avgDelay: data.delays_overtime.avg_delay,
+            maxDelay: data.delays_overtime.max_delay,
+            totalOvertimeHours: data.delays_overtime.total_overtime_hours,
+            overtimeReasons: data.delays_overtime.overtime_reasons || []
+          }
+        });
+      } catch (err) {
+        console.error('Failed to fetch dashboard data:', err);
+        setError('Failed to load dashboard data');
+      } finally {
+        setLoading(false);
       }
     };
-    setDashboardData(mockData);
+
+    fetchDashboardData();
   }, []);
 
   const getStatusBadge = (status) => {
@@ -129,6 +91,28 @@ export function EmployeeDashboard() {
         return 'bg-gray-100 text-gray-800';
     }
   };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-screen">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="p-6 text-center text-red-600">
+        <p>{error}</p>
+        <button
+          onClick={() => window.location.reload()}
+          className="mt-4 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+        >
+          Retry
+        </button>
+      </div>
+    );
+  }
 
   return (
     <div className="p-6 space-y-6">
@@ -307,15 +291,19 @@ export function EmployeeDashboard() {
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
-              {dashboardData.delaysOvertime?.overtimeReasons?.map((reason, index) => (
-                <div key={index} className="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
-                  <div>
-                    <p className="font-medium">{reason.reason}</p>
-                    <p className="text-sm text-gray-500">{reason.count} instances</p>
+              {dashboardData.delaysOvertime?.overtimeReasons?.length > 0 ? (
+                dashboardData.delaysOvertime.overtimeReasons.map((reason, index) => (
+                  <div key={index} className="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
+                    <div>
+                      <p className="font-medium">{reason.reason}</p>
+                      <p className="text-sm text-gray-500">{reason.count} instances</p>
+                    </div>
+                    <span className="font-bold text-orange-600">{reason.hours}h</span>
                   </div>
-                  <span className="font-bold text-orange-600">{reason.hours}h</span>
-                </div>
-              ))}
+                ))
+              ) : (
+                <p className="text-gray-500 text-center py-4">No overtime records this month</p>
+              )}
             </div>
           </CardContent>
         </Card>
@@ -330,69 +318,73 @@ export function EmployeeDashboard() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="rounded-md border">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Date & Time</TableHead>
-                  <TableHead>Route</TableHead>
-                  <TableHead>Vendor</TableHead>
-                  <TableHead className="text-right">Duration</TableHead>
-                  <TableHead className="text-right">Overtime</TableHead>
-                  <TableHead className="text-right">Incentive</TableHead>
-                  <TableHead>Status</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {dashboardData.recentTrips?.map((trip) => (
-                  <TableRow key={trip.id}>
-                    <TableCell>
-                      <div>
-                        <div className="font-medium">{formatDate(trip.date)}</div>
-                        <div className="text-sm text-gray-500">{trip.time}</div>
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <div className="text-sm">
-                        <div className="text-green-600">{trip.pickup}</div>
-                        <div className="text-gray-400 my-1">↓</div>
-                        <div className="text-red-600">{trip.drop}</div>
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <div>
-                        <div className="font-medium">{trip.vendor}</div>
-                        <div className="text-sm text-gray-500">{trip.driver}</div>
-                      </div>
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <span className="font-medium">{trip.duration} mins</span>
-                      <div className="text-xs text-gray-500">({trip.scheduledDuration} scheduled)</div>
-                    </TableCell>
-                    <TableCell className="text-right">
-                      {trip.overtime > 0 ? (
-                        <span className="font-medium text-orange-600">+{trip.overtime} mins</span>
-                      ) : (
-                        <span className="text-gray-400">-</span>
-                      )}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      {trip.incentiveEarned > 0 ? (
-                        <span className="font-bold text-green-600">{formatCurrency(trip.incentiveEarned)}</span>
-                      ) : (
-                        <span className="text-gray-400">-</span>
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusBadge(trip.status)}`}>
-                        {trip.status.charAt(0).toUpperCase() + trip.status.slice(1)}
-                      </span>
-                    </TableCell>
+          {dashboardData.recentTrips?.length > 0 ? (
+            <div className="rounded-md border">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Date & Time</TableHead>
+                    <TableHead>Route</TableHead>
+                    <TableHead>Vendor</TableHead>
+                    <TableHead className="text-right">Duration</TableHead>
+                    <TableHead className="text-right">Overtime</TableHead>
+                    <TableHead className="text-right">Incentive</TableHead>
+                    <TableHead>Status</TableHead>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </div>
+                </TableHeader>
+                <TableBody>
+                  {dashboardData.recentTrips.map((trip) => (
+                    <TableRow key={trip.id}>
+                      <TableCell>
+                        <div>
+                          <div className="font-medium">{formatDate(trip.date)}</div>
+                          <div className="text-sm text-gray-500">{trip.time}</div>
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <div className="text-sm">
+                          <div className="text-green-600">{trip.pickup}</div>
+                          <div className="text-gray-400 my-1">↓</div>
+                          <div className="text-red-600">{trip.drop}</div>
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <div>
+                          <div className="font-medium">{trip.vendor}</div>
+                          <div className="text-sm text-gray-500">{trip.driver || 'N/A'}</div>
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <span className="font-medium">{trip.duration} mins</span>
+                        <div className="text-xs text-gray-500">({trip.scheduled_duration} scheduled)</div>
+                      </TableCell>
+                      <TableCell className="text-right">
+                        {trip.overtime > 0 ? (
+                          <span className="font-medium text-orange-600">+{trip.overtime} mins</span>
+                        ) : (
+                          <span className="text-gray-400">-</span>
+                        )}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        {trip.incentive_earned > 0 ? (
+                          <span className="font-bold text-green-600">{formatCurrency(trip.incentive_earned)}</span>
+                        ) : (
+                          <span className="text-gray-400">-</span>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusBadge(trip.status)}`}>
+                          {trip.status.charAt(0).toUpperCase() + trip.status.slice(1)}
+                        </span>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          ) : (
+            <p className="text-gray-500 text-center py-8">No recent trips to display</p>
+          )}
         </CardContent>
       </Card>
     </div>

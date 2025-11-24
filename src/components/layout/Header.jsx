@@ -1,10 +1,15 @@
 import React from 'react';
-import { Bell, Search, User } from 'lucide-react';
+import { Bell, Search, User, LogOut } from 'lucide-react';
 import { Button } from '../ui/Button';
 import useAuthStore from '../../store/authStore';
 
 export function Header() {
   const { user, clearAuth } = useAuthStore();
+
+  const handleLogout = () => {
+    clearAuth();
+    window.location.href = '/login';
+  };
 
   return (
     <header className="h-16 bg-white border-b border-gray-200 flex items-center justify-between px-6">
@@ -24,22 +29,22 @@ export function Header() {
           <Bell className="w-5 h-5" />
         </Button>
         
-        <div className="flex items-center space-x-2">
-          <div className="text-right">
-            <p className="text-sm font-medium text-gray-900">
-              {user?.name || 'Client User'}
-            </p>
-            <p className="text-xs text-gray-500">
-              {user?.company || 'Company Name'}
-            </p>
+        <div className="flex items-center space-x-3">
+          <div className="flex items-center space-x-2">
+            <div className="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center">
+              <User className="w-4 h-4 text-white" />
+            </div>
+            <div className="hidden md:block">
+              <p className="text-sm font-medium text-gray-900">
+                {user?.firstName} {user?.lastName}
+              </p>
+              <p className="text-xs text-gray-500 capitalize">{user?.role || 'Client'}</p>
+            </div>
           </div>
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={clearAuth}
-            title="Logout"
-          >
-            <User className="w-5 h-5" />
+          
+          <Button variant="ghost" size="sm" onClick={handleLogout}>
+            <LogOut className="w-4 h-4 mr-2" />
+            Logout
           </Button>
         </div>
       </div>

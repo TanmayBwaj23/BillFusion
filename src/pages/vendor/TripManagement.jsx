@@ -3,12 +3,12 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../..
 import { Button } from '../../components/ui/Button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../components/ui/Table';
 import { formatCurrency, formatDate } from '../../lib/utils';
-import { 
+import {
   Calendar,
-  Filter, 
-  Search, 
-  Eye, 
-  Flag, 
+  Filter,
+  Search,
+  Eye,
+  Flag,
   Download,
   MapPin,
   Clock,
@@ -21,8 +21,12 @@ import {
 import { TripDetailModal } from '../../components/modals/TripDetailModal';
 import { DisputeTripModal } from '../../components/modals/DisputeTripModal';
 
+import useAuthStore from '../../store/authStore';
+
 export function TripManagement() {
+  const { user } = useAuthStore();
   const [trips, setTrips] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [filters, setFilters] = useState({
     dateRange: { start: '', end: '' },
     status: '',
@@ -34,176 +38,40 @@ export function TripManagement() {
   const [showDispute, setShowDispute] = useState(false);
 
   useEffect(() => {
-    // Mock trip data for vendor
-    const mockTrips = [
-      {
-        id: 'T001',
-        date: '2024-11-21',
-        time: '09:15 AM',
-        client: 'TechCorp',
-        employee: 'John Doe',
-        empId: 'EMP001',
-        route: {
-          pickup: 'Electronic City Phase 1',
-          drop: 'Koramangala 5th Block',
-          waypoints: ['Hosur Road', 'BTM Layout']
-        },
-        distance: 15.2,
-        duration: 45,
-        vehicle: {
-          id: 'VH001',
-          type: 'Sedan',
-          number: 'KA 01 AB 1234'
-        },
-        driver: {
-          id: 'DR001',
-          name: 'Ramesh Kumar',
-          phone: '+91-9876543210'
-        },
-        billing: {
-          baseAmount: 200,
-          extraKm: 2.2,
-          extraKmRate: 15,
-          extraKmAmount: 33,
-          extraHours: 0.25,
-          extraHourRate: 50,
-          extraHourAmount: 12.5,
-          nightCharges: 0,
-          holidayCharges: 0,
-          totalAmount: 245.5
-        },
-        status: 'completed',
-        disputeStatus: null,
-        completedAt: '2024-11-21 10:00 AM',
-        payoutStatus: 'pending'
-      },
-      {
-        id: 'T002',
-        date: '2024-11-21',
-        time: '10:30 AM',
-        client: 'StartupHub',
-        employee: 'Jane Smith',
-        empId: 'EMP002',
-        route: {
-          pickup: 'Whitefield Main Road',
-          drop: 'Brigade Road',
-          waypoints: ['Marathahalli', 'MG Road']
-        },
-        distance: 22.8,
-        duration: 65,
-        vehicle: {
-          id: 'VH002',
-          type: 'SUV',
-          number: 'KA 02 CD 5678'
-        },
-        driver: {
-          id: 'DR002',
-          name: 'Suresh Patel',
-          phone: '+91-9876543211'
-        },
-        billing: {
-          baseAmount: 280,
-          extraKm: 5.8,
-          extraKmRate: 15,
-          extraKmAmount: 87,
-          extraHours: 0.5,
-          extraHourRate: 50,
-          extraHourAmount: 25,
-          nightCharges: 0,
-          holidayCharges: 0,
-          totalAmount: 392
-        },
-        status: 'completed',
-        disputeStatus: null,
-        completedAt: '2024-11-21 11:35 AM',
-        payoutStatus: 'paid'
-      },
-      {
-        id: 'T003',
-        date: '2024-11-21',
-        time: '02:15 PM',
-        client: 'FinanceInc',
-        employee: 'Mike Johnson',
-        empId: 'EMP003',
-        route: {
-          pickup: 'Indiranagar Metro Station',
-          drop: 'Kempegowda International Airport',
-          waypoints: ['Outer Ring Road', 'Hebbal']
-        },
-        distance: 28.5,
-        duration: 0,
-        vehicle: {
-          id: 'VH001',
-          type: 'Sedan',
-          number: 'KA 01 AB 1234'
-        },
-        driver: {
-          id: 'DR001',
-          name: 'Ramesh Kumar',
-          phone: '+91-9876543210'
-        },
-        billing: {
-          baseAmount: 0,
-          extraKm: 0,
-          extraKmRate: 15,
-          extraKmAmount: 0,
-          extraHours: 0,
-          extraHourRate: 50,
-          extraHourAmount: 0,
-          nightCharges: 0,
-          holidayCharges: 0,
-          totalAmount: 0
-        },
-        status: 'pending',
-        disputeStatus: null,
-        completedAt: null,
-        payoutStatus: 'pending'
-      },
-      {
-        id: 'T004',
-        date: '2024-11-20',
-        time: '08:45 AM',
-        client: 'MegaCorp',
-        employee: 'Sarah Wilson',
-        empId: 'EMP004',
-        route: {
-          pickup: 'JP Nagar 7th Phase',
-          drop: 'Electronic City Phase 2',
-          waypoints: ['Bannerghatta Road']
-        },
-        distance: 18.7,
-        duration: 52,
-        vehicle: {
-          id: 'VH003',
-          type: 'Sedan',
-          number: 'KA 03 EF 9012'
-        },
-        driver: {
-          id: 'DR003',
-          name: 'Manoj Singh',
-          phone: '+91-9876543212'
-        },
-        billing: {
-          baseAmount: 220,
-          extraKm: 1.7,
-          extraKmRate: 15,
-          extraKmAmount: 25.5,
-          extraHours: 0.2,
-          extraHourRate: 50,
-          extraHourAmount: 10,
-          nightCharges: 0,
-          holidayCharges: 0,
-          totalAmount: 255.5
-        },
-        status: 'completed',
-        disputeStatus: 'disputed',
-        disputeReason: 'Incorrect distance calculation - GPS shows 16.2 km, not 18.7 km',
-        completedAt: '2024-11-20 09:37 AM',
-        payoutStatus: 'disputed'
+    const fetchTrips = async () => {
+      try {
+        const token = useAuthStore.getState().accessToken;
+
+        if (!token) {
+          console.error('No access token available');
+          setLoading(false);
+          return;
+        }
+
+        const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/v1/vendor/trips`, {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          setTrips(data);
+          console.log('✅ Trips data loaded:', data);
+        } else {
+          console.error('❌ Failed to fetch trips data, status:', response.status);
+        }
+      } catch (error) {
+        console.error('❌ Error fetching trips:', error);
+      } finally {
+        setLoading(false);
       }
-    ];
-    setTrips(mockTrips);
-  }, []);
+    };
+
+    if (user) {
+      fetchTrips();
+    }
+  }, [user]);
 
   const getStatusBadge = (status) => {
     switch (status) {
@@ -507,16 +375,16 @@ export function TripManagement() {
                     </TableCell>
                     <TableCell className="text-right">
                       <div className="flex justify-end space-x-1">
-                        <Button 
-                          variant="outline" 
+                        <Button
+                          variant="outline"
                           size="sm"
                           onClick={() => handleViewTrip(trip)}
                         >
                           <Eye className="w-4 h-4" />
                         </Button>
                         {trip.status === 'completed' && !trip.disputeStatus && (
-                          <Button 
-                            variant="outline" 
+                          <Button
+                            variant="outline"
                             size="sm"
                             onClick={() => handleDisputeTrip(trip)}
                           >
@@ -535,7 +403,7 @@ export function TripManagement() {
 
       {/* Modals */}
       {showTripDetail && selectedTrip && (
-        <TripDetailModal 
+        <TripDetailModal
           trip={selectedTrip}
           onClose={() => {
             setShowTripDetail(false);
@@ -545,7 +413,7 @@ export function TripManagement() {
       )}
 
       {showDispute && selectedTrip && (
-        <DisputeTripModal 
+        <DisputeTripModal
           trip={selectedTrip}
           onClose={() => {
             setShowDispute(false);

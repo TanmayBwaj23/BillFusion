@@ -1,5 +1,6 @@
 import React from "react";
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { Toaster } from 'react-hot-toast';
 import { ClientLayout } from './components/layout/ClientLayout';
 import { ClientDashboard } from './pages/client/ClientDashboard';
 import { VendorManagement } from './pages/client/VendorManagement';
@@ -17,20 +18,43 @@ import { EmployeeDashboard } from './pages/employee/EmployeeDashboard';
 import { EmployeeTripHistory } from './pages/employee/EmployeeTripHistory';
 import { EmployeeReports } from './pages/employee/EmployeeReports';
 import { EmployeeProfile } from './pages/employee/EmployeeProfile';
+
 import { Login } from './pages/auth/Login';
 import { Signup } from './pages/auth/Signup';
 import { ForgotPassword } from './pages/auth/ForgotPassword';
+import { ResetPassword } from './pages/auth/ResetPassword';
+import { AccessDenied } from './pages/AccessDenied';
+import { NotFound } from './pages/NotFound';
 import { ProtectedRoute } from './components/auth/ProtectedRoute';
+import ErrorBoundary from './components/ErrorBoundary';
 
 export default function App() {
   return (
-    <Router>
-      <div className="min-h-screen bg-gray-50">
-        <Routes>
-          {/* Authentication Routes */}
+    <ErrorBoundary>
+      <Router>
+        <Toaster 
+          position="top-right"
+          reverseOrder={false}
+          gutter={8}
+          toastOptions={{
+            duration: 4000,
+            style: {
+              borderRadius: '8px',
+              padding: '12px 16px',
+              fontSize: '14px',
+            },
+          }}
+        />
+        <div className="min-h-screen bg-gray-50">
+          <Routes>
+          {/* Public Authentication Routes */}
           <Route path="/login" element={<Login />} />
           <Route path="/signup" element={<Signup />} />
           <Route path="/forgot-password" element={<ForgotPassword />} />
+          <Route path="/reset-password" element={<ResetPassword />} />
+          
+          {/* Error Pages */}
+          <Route path="/access-denied" element={<AccessDenied />} />
           
           {/* Default Redirect */}
           <Route path="/" element={<Navigate to="/login" replace />} />
@@ -41,6 +65,7 @@ export default function App() {
               <ClientLayout />
             </ProtectedRoute>
           }>
+            <Route index element={<Navigate to="dashboard" replace />} />
             <Route path="dashboard" element={<ClientDashboard />} />
             <Route path="trip-monitoring" element={<TripMonitoring />} />
             <Route path="billing-models" element={<BillingModelVisibility />} />
@@ -54,6 +79,7 @@ export default function App() {
               <VendorLayout />
             </ProtectedRoute>
           }>
+            <Route index element={<Navigate to="dashboard" replace />} />
             <Route path="dashboard" element={<VendorDashboard />} />
             <Route path="trips" element={<TripManagement />} />
             <Route path="billing" element={<VendorBilling />} />
@@ -67,13 +93,18 @@ export default function App() {
               <EmployeeLayout />
             </ProtectedRoute>
           }>
+            <Route index element={<Navigate to="dashboard" replace />} />
             <Route path="dashboard" element={<EmployeeDashboard />} />
             <Route path="trips" element={<EmployeeTripHistory />} />
             <Route path="reports" element={<EmployeeReports />} />
             <Route path="profile" element={<EmployeeProfile />} />
           </Route>
+          
+          {/* 404 Catch-all Route - Must be last */}
+          <Route path="*" element={<NotFound />} />
         </Routes>
       </div>
     </Router>
+    </ErrorBoundary>
   );
 }
